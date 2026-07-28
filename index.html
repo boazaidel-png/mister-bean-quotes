@@ -213,10 +213,14 @@
       const supplierMonths=Math.max(1,n("supplierMonths")||8);
       const supplierMonthly=a.uncoveredCost/supplierMonths;
       const extra=n("extraMonthlyCost")||0;
+      const financing=financingData(e,a,term,b);
+      const cashflow=cashflowData(c,b,e,a,term);
+      const monthlyEquipment=financing.active?financing.supplierMonthly+financing.payment:supplierMonthly;
       const monthlyIncome=b.income+term.leaseIncome;
       const operatingProfit=b.profit+term.leaseIncome-extra;
-      const minBalanceKg=minKgToBreak(Math.max(0,supplierMonthly+extra-term.leaseIncome),b);
-      const paybackMonth=equipmentPaybackMonth(e.total,operatingProfit-supplierMonthly,operatingProfit,supplierMonths);
+      const availableBalance=operatingProfit-monthlyEquipment;
+      const minBalanceKg=minKgToBreak(Math.max(0,monthlyEquipment+extra-term.leaseIncome),b);
+      const paybackMonth=equipmentPaybackMonth(e.total,availableBalance,operatingProfit,supplierMonths);
       const weightedCup=costPerCup(monthlyIncome,cupsFromKg(b.totalKg,c.g));
       const shortName=m=>m.label.replace("DR. COFFEE ","").replace(" - COFFEE BREAK"," Coffee Break");
       const machineQtyWord=q=>Number(q)===1?"מכונה":"מכונות";
@@ -235,13 +239,24 @@
         ["רווח מפולים",money(b.profit)],
         ...(term.leaseIncome>0?[["הכנסה חודשית משכירות",money(term.leaseIncome)]]:[]),
         ...(term.saleIncome>0?[["הכנסה חד־פעמית ממכירה",money(term.saleIncome)],["רווח חד־פעמי ממכירה",money(term.saleProfit)]]:[]),
-        ["מאזן חודשי עד כיסוי המכונות",(operatingProfit-supplierMonthly)<0?`-${money(Math.abs(operatingProfit-supplierMonthly))}`:money(operatingProfit-supplierMonthly)],
+        ...(extra>0?[["הוצאות תפעול שוטפות – משוער",`-${money(extra)}`]]:[]),
+        ...(financing.active?[
+          ["סכום המימון",money(financing.amount)],
+          ["תקופת וריבית המימון",`${financing.months} חודשים | ${financing.annualRate}% שנתי`],
+          ["החזר מימון חודשי",`-${money(financing.payment)}`],
+          ...(financing.supplierMonthly>0?[["תשלום ליבואן על ציוד שלא מומן",`-${money(financing.supplierMonthly)}`]]:[])
+        ]:[["תשלום חודשי ליבואן",`-${money(supplierMonthly)}`]]),
+        ["יתרה חודשית לאחר כלל התשלומים",signedMoney(availableBalance)],
+        ["מאזן תזרימי בחודש הראשון",signedMoney(cashflow.first)],
+        ["שיא חשיפה תזרימית",money(cashflow.exposure)],
+        ["חודש איזון תזרימי",String(cashflow.breakEven)],
         ["חודשים לכיסוי עלויות",paybackText],
         ["עלות משוקללת ללקוח לכוס",cup(weightedCup)]
       ];
       const rawTitle=clientName.value||"לקוח חדש";
       const canvas=document.createElement("canvas");
-      const W=1400,H=1780;
+      const machineLines=rows.reduce((sum,[,v])=>sum+Math.max(0,String(v).split("\n").length-1),0);
+      const W=1400,H=Math.max(1780,760+rows.length*92+machineLines*42);
       canvas.width=W; canvas.height=H;
       const ctx=canvas.getContext("2d");
       ctx.direction="rtl";
