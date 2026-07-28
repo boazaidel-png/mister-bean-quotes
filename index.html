@@ -222,20 +222,22 @@
       const minBalanceKg=minKgToBreak(Math.max(0,monthlyEquipment+extra-term.leaseIncome),b);
       const paybackMonth=equipmentPaybackMonth(e.total,availableBalance,operatingProfit,supplierMonths);
       const weightedCup=costPerCup(monthlyIncome,cupsFromKg(b.totalKg,c.g));
+      const contractMonths=Math.max(1,n("clientCostMonths")||36);
+      const averageKgCost=b.totalKg>0?monthlyIncome/b.totalKg:0;
+      const totalContractProfit=operatingProfit*contractMonths+term.saleProfit-a.uncoveredCost-financing.totalInterest;
       const shortName=m=>m.label.replace("DR. COFFEE ","").replace(" - COFFEE BREAK"," Coffee Break");
       const machineQtyWord=q=>Number(q)===1?"מכונה":"מכונות";
       const byType=type=>a.rows.filter(r=>r[type]>0).map(r=>`‎${shortName(r.m)}: ${r[type]} ${machineQtyWord(r[type])}`).join("\n")||"0";
       const paybackText=monthsText(paybackMonth);
       const rows=[
         ["שם לקוח",clientName.value||"לקוח חדש"],
-        ["צריכה חודשית",kg(c.calcKg)],
+        ["צריכה חודשית בפועל",kg(b.totalKg)],
         ["מחיר מכירה לק״ג",blendSalePriceText()],
         ["כמות מינ׳ לאיזון",kg(minBalanceKg)],
         ["ללא עלות",byType("f")],
         ["השכרה",byType("l")],
         ["מכירה",byType("s")],
         ["עלות כוללת לנו",money(e.total)],
-        ["הכנסה חודשית כוללת",money(monthlyIncome)],
         ["רווח מפולים",money(b.profit)],
         ...(term.leaseIncome>0?[["הכנסה חודשית משכירות",money(term.leaseIncome)]]:[]),
         ...(term.saleIncome>0?[["הכנסה חד־פעמית ממכירה",money(term.saleIncome)],["רווח חד־פעמי ממכירה",money(term.saleProfit)]]:[]),
@@ -253,10 +255,16 @@
         ["חודשים לכיסוי עלויות",paybackText],
         ["עלות משוקללת ללקוח לכוס",cup(weightedCup)]
       ];
+      const keyRows=[
+        ["עלות חודשית כוללת ללקוח",money(monthlyIncome)],
+        ["עלות ממוצעת לקילו ללקוח",`${money(averageKgCost)} לק״ג`],
+        ["יתרה חודשית",signedMoney(availableBalance)],
+        [`סה״כ רווח חוזה לקוח (${contractMonths} חודשים)`,signedMoney(totalContractProfit)]
+      ];
       const rawTitle=clientName.value||"לקוח חדש";
       const canvas=document.createElement("canvas");
       const machineLines=rows.reduce((sum,[,v])=>sum+Math.max(0,String(v).split("\n").length-1),0);
-      const W=1400,H=Math.max(1780,760+rows.length*92+machineLines*42);
+      const W=1400,H=Math.max(2100,900+rows.length*92+machineLines*42+keyRows.length*112);
       canvas.width=W; canvas.height=H;
       const ctx=canvas.getContext("2d");
       ctx.direction="rtl";
@@ -275,11 +283,29 @@
       ctx.strokeStyle="#EEF2F7"; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(130,340); ctx.lineTo(W-130,340); ctx.stroke();
       let y=405;
       rows.forEach(([k,v],i)=>{
-        ctx.strokeStyle="#EEF2F7"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(130,y+58); ctx.lineTo(W-130,y+58); ctx.stroke();
+        const rowHeight=92+Math.max(0,String(v).split("\n").length-1)*42;
+        ctx.strokeStyle="#EEF2F7"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(130,y+rowHeight-34); ctx.lineTo(W-130,y+rowHeight-34); ctx.stroke();
         ctx.textAlign="right"; ctx.fillStyle="#667085"; ctx.font="800 30px Arial"; ctx.fillText(k,W-150,y);
         ctx.textAlign="left"; ctx.fillStyle="#071B34"; ctx.font="900 34px Arial";
         drawWrappedLeft(ctx,String(v),150,y,610,42);
-        y+=92;
+        y+=rowHeight;
+      });
+      y+=20;
+      ctx.fillStyle="#0B2545"; ctx.font="900 38px Arial"; ctx.textAlign="right";
+      ctx.fillText("סיכום העסקה",W-150,y);
+      y+=38;
+      keyRows.forEach(([k,v],i)=>{
+        const isBalance=i===2||i===3;
+        const numericValue=i===2?availableBalance:i===3?totalContractProfit:1;
+        ctx.fillStyle=i===3?"#EAF7EF":"#EFF6FF";
+        roundRect(ctx,130,y,W-260,88,18,true,false);
+        ctx.strokeStyle=i===3?"#86D5A5":"#BFDBFE"; ctx.lineWidth=2;
+        roundRect(ctx,130,y,W-260,88,18,false,true);
+        ctx.textAlign="right"; ctx.fillStyle="#344054"; ctx.font="900 30px Arial";
+        ctx.fillText(k,W-165,y+55);
+        ctx.textAlign="left"; ctx.fillStyle=isBalance?(numericValue<0?"#B42318":"#087A43"):"#071B34"; ctx.font="900 38px Arial";
+        ctx.fillText(String(v),165,y+57);
+        y+=106;
       });
       ctx.fillStyle="#EFF6FF"; roundRect(ctx,150,H-250,W-300,86,20,true,false);
       ctx.strokeStyle="#BFDBFE"; ctx.lineWidth=2; roundRect(ctx,150,H-250,W-300,86,20,false,true);
